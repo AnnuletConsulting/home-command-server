@@ -75,4 +75,8 @@ public class HelpModule extends Module {
 		return response;
 	}
 
+	@Override
+	public String getAudioStreamUrl() {
+		return null;
+	}
 }

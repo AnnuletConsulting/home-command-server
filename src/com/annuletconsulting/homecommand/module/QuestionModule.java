@@ -50,7 +50,7 @@ public class QuestionModule extends Module {
         engine.addFormat("plaintext");
 //        engine.addFormat("html");
 //        engine.addFormat("image");
-//        engine.addFormat("sound");
+        engine.addFormat("sound");
     }
 
 	@Override
@@ -155,5 +155,13 @@ public class QuestionModule extends Module {
 	@Override
 	public String getSpeechResponse() {
 		return shortTextResponse;
+	}
+
+	@Override
+	public String getAudioStreamUrl() {
+		if (waSounds.isEmpty())
+			return null;
+		//TODO If this works, I'll change to support multiple urls, will need to do that to support music playlists anyway.
+		return waSounds.get(waSounds.keySet().toArray()[0]).getURL();
 	}
 }

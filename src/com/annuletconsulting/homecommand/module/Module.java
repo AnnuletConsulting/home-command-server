@@ -42,6 +42,7 @@ public abstract class Module {
 	public abstract String getFullTextResponse();
 	public abstract String getHTMLResponse();
 	public abstract String getURLResponse();
+	public abstract String getAudioStreamUrl();
 	public abstract String getSpeechResponse();
 	public abstract int getKeyWordLocation();
 	

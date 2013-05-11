@@ -75,7 +75,7 @@ public class HueLightModule extends Module {
 	@Override
 	public int run(String[] input) {
 		try {
-			response = "";
+			response = null;
 			int percent = getIndexOf("PERCENT", input);
 			int colorIndex = getIndexOf("COLOR", input);
 			int moodIndex = getIndexOf("MOOD", input);
@@ -372,4 +372,9 @@ public class HueLightModule extends Module {
     		}
     	}
     }
+
+	@Override
+	public String getAudioStreamUrl() {
+		return null;
+	}
 }

@@ -101,4 +101,9 @@ public class NonCopyrightInfringingGenericSpaceExplorationTVShowModule extends M
 		return response;
 	}
 
+	@Override
+	public String getAudioStreamUrl() {
+		// TODO if Red Alert or self destruct, send an audio stream url
+		return null;
+	}
 }

@@ -16,8 +16,12 @@
 
 package com.annuletconsulting.homecommand.module;
 
+import com.annuletconsulting.homecommand.server.MP3Streamer;
+
 public class MusicModule extends Module {
 	private String response;
+	private String audioStreamUrl;
+	private String error;
 	
 	@Override
 	public String[] getCommands() {
@@ -37,37 +41,39 @@ public class MusicModule extends Module {
 
 	@Override
 	public int run(String[] input) {
-		response = "You are using Annulet Consulting's Home Command System. The music module is not yet completed.";
+		//TODO process voice command and search available music files to find a match.
+		String path = "/home/walt/Music/Johnny_Cash-Hurt.mp3";
+		audioStreamUrl = "192.168.1.3:8889";
+		response = "BUFFERING"; //"You are using Annulet Consulting's Home Command System. The music module is not yet completed.";Runnable task = new MyRunnable(10000000L + i);
+	    Thread worker = new Thread(new MP3Streamer(path, 8889));
+	    worker.setName(path);
+	    worker.start();
 		return SUCCESS;
 	}
 
 	@Override
 	public String getErrorMessage() {
-		return "";
+		return error;
 	}
 
 	@Override
 	public String getShortTextResponse() {
-		// TODO Auto-generated method stub
 		return response;
 	}
 
 	@Override
 	public String getFullTextResponse() {
-		// TODO Auto-generated method stub
 		return response;
 	}
 
 	@Override
 	public String getHTMLResponse() {
-		// TODO Auto-generated method stub
 		return null;
 	}
 
 	@Override
 	public String getURLResponse() {
-		// TODO Auto-generated method stub
-		return null;
+		return audioStreamUrl;
 	}
 
 	@Override
@@ -75,4 +81,8 @@ public class MusicModule extends Module {
 		return response;
 	}
 
+	@Override
+	public String getAudioStreamUrl() {
+		return audioStreamUrl;
+	}
 }

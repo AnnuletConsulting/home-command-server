@@ -20,39 +20,34 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Iterator;
 
-import javax.crypto.Cipher;
-import javax.crypto.KeyGenerator;
 import javax.crypto.Mac;
-import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import org.apache.commons.codec.binary.Hex;
 
 import com.annuletconsulting.homecommand.module.*;
+import com.annuletconsulting.oss.SimpleCrypto;
 
 public class HomeCommand {
     private static final String ENCODING_FORMAT = "UTF8";
 	private static final String SIGNATURE_METHOD = "HmacSHA256";
-	
 	public static final String LIGHTS = "lights";
 	public static final String QUESTIONS = "questions";
 	public static final String MATH = "math";
 	public static final String TV_SHOW = "tvshow";
-	private static final String AES = "AES";
 	private static boolean end = false;
 	private static int socket = 8888;
 	private static String sharedKey = null;
 	private static String userModulesPath = "user/modules";
 	private static String nonJavaUserModulesPath = "user/nonjavamodules";
-	private static HashMap<String, Module> modules = new HashMap<String, Module>();
+	private static ArrayList<Module> modules = new ArrayList<Module>();
 	
 	// This will contain any MultiStepModules that are currently stepping through a loop.
-	private static HashMap<String, Module> activeMultiStepModule = new HashMap<String, Module>();
+	private static MultiStepModule activeMultiStepModule = null;
 	private static String nodeType;
 
 	/**
@@ -67,17 +62,17 @@ public class HomeCommand {
 		try {
 			socket = Integer.parseInt(HomeComandProperties.getInstance().getServerPort());
 			nonJavaUserModulesPath = HomeComandProperties.getInstance().getNonJavaUserDir();
-		} catch (Exception e) {
+		} catch (Exception exception) {
 			System.out.println("Error loading from properties file.");
-			e.printStackTrace();
+			exception.printStackTrace();
 		}
 		try {
 			sharedKey = HomeComandProperties.getInstance().getSharedKey();
 			if (sharedKey == null)
 				System.out.println("shared_key is null, commands without valid signatures will be processed.");
-		} catch (Exception e) {
+		} catch (Exception exception) {
 			System.out.println("shared_key not found in properties file.");
-			e.printStackTrace();
+			exception.printStackTrace();
 		}
 		try {
 			if (args.length > 0) {
@@ -99,16 +94,29 @@ public class HomeCommand {
 			if (args.length > 2)
 				nonJavaUserModulesPath = args[2];
 			
-			modules.put(LIGHTS, new HueLightModule());
-			modules.put(QUESTIONS, new QuestionModule());
-			modules.put(MATH, new MathModule());
-			modules.put(TV_SHOW, new NonCopyrightInfringingGenericSpaceExplorationTVShowModule());
-			modules.putAll(NonJavaUserModuleLoader.loadModulesAt(nonJavaUserModulesPath));
-	        ServerSocket ss = new ServerSocket(socket);
-	        while(!end) {
-                Socket s = ss.accept();
-                InputStreamReader isr = new InputStreamReader(s.getInputStream());
-                PrintWriter output = new PrintWriter(s.getOutputStream(), true);
+			System.out.println("Config loaded, initializing modules.");
+			modules.add(new HueLightModule());
+			System.out.println("HueLightModule initialized.");
+			modules.add(new QuestionModule());
+			System.out.println("QuestionModule initialized.");
+			modules.add(new MathModule());
+			System.out.println("MathModule initialized.");
+			modules.add(new MusicModule());
+			System.out.println("MusicModule initialized.");
+			modules.add(new NonCopyrightInfringingGenericSpaceExplorationTVShowModule());
+			System.out.println("NonCopyrightInfringingGenericSpaceExplorationTVShowModule initialized.");
+			modules.add(new HelpModule());
+			System.out.println("HelpModule initialized.");
+			modules.add(new SetUpModule());
+			System.out.println("SetUpModule initialized.");
+			modules.addAll(NonJavaUserModuleLoader.loadModulesAt(nonJavaUserModulesPath));
+			System.out.println("NonJavaUserModuleLoader initialized.");
+	        ServerSocket serverSocket = new ServerSocket(socket);
+	        System.out.println("Listening...");
+	        while (!end) {
+                Socket socket = serverSocket.accept();
+                InputStreamReader isr = new InputStreamReader(socket.getInputStream());
+                PrintWriter output = new PrintWriter(socket.getOutputStream(), true);
                 int character;
                 StringBuffer inputStrBuffer = new StringBuffer();
                 while((character = isr.read()) != 13) {
@@ -138,18 +146,21 @@ public class HomeCommand {
                 output.print((char) 13);
                 output.close();
                 isr.close();
-                s.close();
+                socket.close();
 	        }
-	        ss.close();
-	    } catch (Exception e) {
-	    	e.printStackTrace();
-	    }
+	        serverSocket.close();
+	        System.out.println("Shutting down.");
+		} catch (Exception exception) {
+			exception.printStackTrace();
+		}
 	}
 
-	/**
-	 * TODO write decryption algorithm
-	 */
 	private static String[] decryptCommand(String encryptedString) {
+		if (sharedKey != null) try {
+			return SimpleCrypto.decrypt(sharedKey, encryptedString).split(" ");
+		} catch (Exception exception) {
+			exception.printStackTrace();
+		}
 		return encryptedString.split(" ");
 	}
 
@@ -158,16 +169,16 @@ public class HomeCommand {
 	}
 
 	private static String getSignature(String timeStamp) {
-    	try {
+		if (sharedKey != null) try {
 			byte[] data = timeStamp.getBytes(ENCODING_FORMAT);
 			Mac mac = Mac.getInstance(SIGNATURE_METHOD);
 			mac.init(new SecretKeySpec(sharedKey.getBytes(ENCODING_FORMAT), SIGNATURE_METHOD));
 			char[] signature = Hex.encodeHex(mac.doFinal(data));
-			return new String( signature );
+			return new String(signature);
+		} catch (Exception exception) {
+			exception.printStackTrace();
 		}
-		catch ( Exception exception ) {
-			return "Error in getSignature()";
-		}
+		return "Error in getSignature()";
 	}
 
 	public static void stop() {
@@ -189,22 +200,35 @@ public class HomeCommand {
 	 * @return
 	 */
 	private static String getResult(String[] words) {
-		// TODO Handle MultiStepModules
-		String mscmd = "get multistep command";
-		if (activeMultiStepModule.containsKey(mscmd)) {
-			
+		// Handle activeMultiStepModule
+		if (activeMultiStepModule != null) {
+			for (String cmd : activeMultiStepModule.getMultiStepLoopCommands()) {
+				if (cmd.equalsIgnoreCase(words[activeMultiStepModule.getMultiStepKeyWordLocation()]))
+					return processModuleResult(activeMultiStepModule.step(words), activeMultiStepModule);
+			}
+			for (String cmd : activeMultiStepModule.getMultiStepEndCommands()) {
+				if (cmd.equalsIgnoreCase(words[activeMultiStepModule.getMultiStepKeyWordLocation()])) {
+					MultiStepModule tmpModule = activeMultiStepModule;
+					activeMultiStepModule = null;
+					return processModuleResult(tmpModule.end(words), tmpModule);
+				}
+			}
 		}
-		Iterator<String> keys = modules.keySet().iterator();
-		while (keys.hasNext()) {
-			Module module = modules.get(keys.next());
+		Iterator<Module> moduleIterator = modules.iterator();
+		while (moduleIterator.hasNext()) {
+			Module module = moduleIterator.next();
 			for (String cmd : module.getCommands()) {
 				if (cmd.equalsIgnoreCase(words[module.getKeyWordLocation()]))
-					return runCommandOnModule(words, module);
+					return processModuleResult(module.run(words), module);
 			}
 			// we didn't match on the specified position, so let's check if the keyword is in a different position
-			for (String cmd : module.getCommands()) {
-				if (Arrays.asList(words).contains(cmd))
-					return runCommandOnModule(words, module);
+			try {
+				for (String cmd : module.getCommands()) {
+					if (Arrays.asList(words).contains(cmd))
+						return processModuleResult(module.run(words), module);
+				}
+			} catch (Exception exception) {
+				exception.printStackTrace();
 			}
 		}
 		StringBuffer out = new StringBuffer();
@@ -218,8 +242,12 @@ public class HomeCommand {
 		return out.toString();
 	}
 	
-	private static String runCommandOnModule(String[] words, Module module) {
-		switch (module.run(words)) {
+	private static String processModuleResult(int result, Module module) {
+		if (module instanceof MultiStepModule) {
+			if (((MultiStepModule) module).isMultiStepStarted())
+				activeMultiStepModule = (MultiStepModule) module;
+		}
+		switch (result) {
 			case Module.SUCCESS:
 				return prepareResponseJSON(module);
 			case Module.NO_ACCESS_CODE:
@@ -237,20 +265,25 @@ public class HomeCommand {
 
 	private static String prepareResponseJSON(Module module) {
 		StringBuffer json = new StringBuffer();
-		json.append("{ \"speech\":\"");
-		json.append(module.getSpeechResponse());
-		json.append("\" \"short_text\":\"");
-		json.append(module.getShortTextResponse());
-		json.append("\" \"full_text\":\"");
-		json.append(module.getFullTextResponse());
-		json.append("\" \"html\":\"");
-		json.append(module.getHTMLResponse());
-		json.append("\" \"url\":\"");
-		json.append(module.getURLResponse());
-		json.append("\" \"log\":\"");
+		json.append("{ \"log\":\"");
 		json.append(module.getLogText());
+		appendIfNotNull(json, "speech", module.getSpeechResponse());
+		appendIfNotNull(json, "short_text", module.getShortTextResponse());
+		appendIfNotNull(json, "full_text", module.getFullTextResponse());
+		appendIfNotNull(json, "html", module.getHTMLResponse());
+		appendIfNotNull(json, "url", module.getURLResponse());
+		appendIfNotNull(json, "stream", module.getAudioStreamUrl());
 		json.append("\" }");
 		return json.toString();
+	}
+	
+	private static void appendIfNotNull(StringBuffer stringBuffer, String label, String value) {
+		if (value != null) {
+			stringBuffer.append("\" \"");
+			stringBuffer.append(label);
+			stringBuffer.append("\":\"");
+			stringBuffer.append(value);
+		}
 	}
 	
 	private static String prepareErrorResponseJSON(Module module, String extraText) {

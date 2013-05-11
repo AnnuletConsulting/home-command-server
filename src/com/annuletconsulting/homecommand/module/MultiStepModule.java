@@ -34,17 +34,16 @@ package com.annuletconsulting.homecommand.module;
  * 
  * @author Walt Moorhouse
  */
-public interface MultiStepModule {
-	public String[] getMultiStepStartCommands();
-	public String[] getMultiStepLoopCommands();
-	public String[] getMultiStepEndCommands();
-	public boolean requiresAccessCodeForMultiStep();
-	public int start(String input);
-	public int step(String input);
-	public int end(String input);
-	public int getMaxWaitTime();
-	public String getErrorMessage();
-	public String getShortTextResponse();
-	public String getFullTextResponse();
-	public String getStreamUrl();
+public abstract class MultiStepModule extends Module {
+	public abstract String[] getMultiStepLoopCommands();
+	public abstract String[] getMultiStepEndCommands();
+	public abstract boolean requiresAccessCodeForMultiStep();
+	public abstract int step(String[] words);
+	public abstract int end(String[] input);
+	public abstract int getMaxWaitTime();
+	public abstract String getErrorMessage();
+	public abstract String getShortTextResponse();
+	public abstract String getFullTextResponse();
+	public abstract int getMultiStepKeyWordLocation();
+	public abstract boolean isMultiStepStarted();
 }

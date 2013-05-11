@@ -16,14 +16,14 @@
 
 package com.annuletconsulting.homecommand.server;
 
-import java.util.HashMap;
+import java.util.ArrayList;
 import com.annuletconsulting.homecommand.module.Module;
 
 public class NonJavaUserModuleLoader {
 
-	public static HashMap<String, Module> loadModulesAt(String userModulesPath) {
+	public static ArrayList<Module> loadModulesAt(String userModulesPath) {
 		// TODO Auto-generated method stub
-		HashMap<String, Module> modules = new HashMap<String, Module>();
+		ArrayList<Module> modules = new ArrayList<Module>();
 		return modules;
 	}
 }

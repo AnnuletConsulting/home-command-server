@@ -72,4 +72,9 @@ public class ZigBeeLightModule extends Module {
 	public int getKeyWordLocation() {
 		return 0;
 	}
+
+	@Override
+	public String getAudioStreamUrl() {
+		return null;
+	}
 }

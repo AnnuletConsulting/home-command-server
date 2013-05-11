@@ -28,7 +28,6 @@ public class HomeComandProperties {
 
     private static Properties properties = new Properties();
     private static HomeComandProperties instance = null;
-    
     public static HomeComandProperties getInstance() {
         if (instance == null) {
             instance = new HomeComandProperties();
@@ -99,23 +98,14 @@ public class HomeComandProperties {
 		return nonJavaUserDir;
 	}
 
-	/**
-	 * @return the hueBridgeUser
-	 */
 	public String getHueBridgeUser() {
 		return hueBridgeUser;
 	}
-	
-	/**
-	 * @return the hueBridgeIp
-	 */
+
 	public String getHueBridgeIp() {
 		return hueBridgeIp;
 	}
 
-	/**
-	 * @return the sharedKey
-	 */
 	public String getSharedKey() {
 		return sharedKey;
 	}

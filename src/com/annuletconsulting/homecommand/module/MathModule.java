@@ -21,13 +21,14 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 
-public class MathModule extends Module implements MultiStepModule {
+public class MathModule extends MultiStepModule {
 	private String streamUrl;
 	private String urlResponse;
 	private String htmlResponse;
 	private String fullTextResponse;
 	private String shortTextResponse;
 	private String errorMsg;
+	private static boolean multiStepStarted = false;
 	
 	private static final String CALCULATE = "CALCULATE";
 	private static final String MULTIPLY = "MULTIPLY";
@@ -35,7 +36,7 @@ public class MathModule extends Module implements MultiStepModule {
 	private static final String ADD = "ADD";
 	private static final String SUM = "SUM";
 	private static final String SUBTRACT = "SUBTRACT";
-	private double total;
+	private static double total = 0;
 	private static final String REMAINDER = "REMAINDER";
 	private static final String POWER = "POWER";
 	private static final String ROOT = "ROOT";
@@ -47,6 +48,7 @@ public class MathModule extends Module implements MultiStepModule {
 	private static final String CUBE = "CUBE";
 	private static final String TIMES = "TIMES";
 	private static final HashMap<String, String> numberWords = new HashMap<String, String>();
+	private static final String ANSWER = "ANSWER";
 	
 	public MathModule() {
     	super();
@@ -78,12 +80,6 @@ public class MathModule extends Module implements MultiStepModule {
 	}
 
 	@Override
-	public String[] getMultiStepStartCommands() {
-		String[] mssc = {"START CALCULATION", "CALCULATION MODE ON" };
-		return mssc;
-	}
-
-	@Override
 	public String[] getMultiStepLoopCommands() {
 		String[] loopcmds = {REMAINDER, MULTIPLY, DIVIDE, ADD, SUM, SUBTRACT, SUBTOTAL};
 		return loopcmds;
@@ -91,14 +87,17 @@ public class MathModule extends Module implements MultiStepModule {
 
 	@Override
 	public String[] getMultiStepEndCommands() {
-		String[] msse = {"STOP CALCULATION", "CALCULATION MODE OFF", TOTAL };
+		String[] msse = {"STOP", TOTAL };
 		return msse;
 	}
 
 	@Override
 	public int run(String[] words) {
-		if (words[0].equals(CALCULATE)) { 
-			// Remove the word calculate
+		multiStepStarted = false;
+		if (words[0].equals(CALCULATE) || words[0].equals("START")) {
+			if (words[0].equals("START"))
+				multiStepStarted = true;
+			// Remove the word calculate or Start
 			String[] tmpWords = new String[words.length-1];
 			for (int w=0; w<tmpWords.length; w++)
 				tmpWords[w] = words[w+1];
@@ -106,13 +105,17 @@ public class MathModule extends Module implements MultiStepModule {
 		}
 		words = convertAnyTextWordsIntoNumbers(words);
 		words = combineAdjacentNumbers(words);
+		return parseWords(words);
+	}
+	
+	private int parseWords(String[] words) {
 		if (contains(words, ADD) || contains(words, SUM))
 			return add(words);
+		if (contains(words, "PLUS"))
+			return add(words.length==3?addBlankInFront(words):words);
 		if (contains(words, SUBTRACT))
 			return subtract(words);
-		if (contains(words, MULTIPLY))
-			return multiply(words);
-		if (contains(words, TIMES))
+		if (contains(words, MULTIPLY) || contains(words, TIMES))
 			return multiply(words);
 		if (contains(words, DIVIDE))
 			return divide(words);
@@ -124,6 +127,13 @@ public class MathModule extends Module implements MultiStepModule {
 				contains(words, CUBED) || contains(words, CUBE))
 			return exponent(words);
 		return INVALID_PARAMS;
+	}
+
+	private String[] addBlankInFront(String[] words) {
+		String[] out = new String[words.length+1];
+		for (int i=0; i<words.length; i++)
+			out[i+1] = words[i];
+		return out;
 	}
 
 	private String[] combineAdjacentNumbers(String[] words) {
@@ -179,6 +189,10 @@ public class MathModule extends Module implements MultiStepModule {
 		return Arrays.asList(words).contains(word);
 	}
 
+	private int indexOf(String[] words, String word) {
+		return Arrays.asList(words).indexOf(word);
+	}
+
 	private int root(String[] words) {
 		if (words.length == 4) {
 			try {
@@ -187,7 +201,6 @@ public class MathModule extends Module implements MultiStepModule {
 				else if (CUBE.equals(words[0]))
 					total = Math.pow(Double.valueOf(words[3]), -3);
 				else 
-//					total = Math.pow(Double.valueOf(words[3]), -3);
 					throw new Exception("Format Unknown");
 				StringBuffer sb = new StringBuffer();
 				sb.append("THE ANSWER IS ");
@@ -333,30 +346,12 @@ public class MathModule extends Module implements MultiStepModule {
 	}
 
 	@Override
-	public int start(String input) {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-
-	@Override
-	public int step(String input) {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-
-	@Override
-	public int end(String input) {
-		// TODO Auto-generated method stub
-		return 0;
-	}
-
-	@Override
 	public int getMaxWaitTime() {
 		return -1; //infinite wait
 	}
 
 	@Override
-	public String getStreamUrl() {
+	public String getAudioStreamUrl() {
 		return streamUrl;
 	}
 
@@ -398,5 +393,70 @@ public class MathModule extends Module implements MultiStepModule {
 	@Override
 	public boolean requiresAccessCodeForMultiStep() {
 		return false;
+	}
+
+	@Override
+	public int step(String[] words) {
+		words = convertAnyTextWordsIntoNumbers(words);
+		words = combineAdjacentNumbers(words);
+		// If we used the ANSWER placeholder, put the total there.
+		if (contains(words, ANSWER)) {
+			words[indexOf(words, ANSWER)] = String.valueOf(total);
+			return run(words);
+		}
+		// Otherwise, we have to guess where to put the total. 
+		if (contains(words, ADD) || contains(words, SUM))
+			return add(appendTotalAfterSpace(words));
+		if (contains(words, SUBTRACT))
+			return subtract(appendTotalAfterSpace(words));
+		if (contains(words, MULTIPLY) || contains(words, TIMES))
+			return multiply(appendTotalAfterSpace(words));
+		if (contains(words, DIVIDE)) {
+			if (contains(words, "BY"))
+				return divide(appendTotalAfterSpace(words));
+			else
+				return divide(appendTotalBeforeSpace(words));
+		}
+//		if (contains(words, REMAINDER))
+//			return remainder(words);
+//		if (contains(words, ROOT))
+//			return root(words);
+//		if (contains(words, POWER) || contains(words, SQUARED) || contains(words, SQUARE) || 
+//				contains(words, CUBED) || contains(words, CUBE))
+//			return exponent(words);
+		return INVALID_PARAMS;
+	}
+
+	private String[] appendTotalBeforeSpace(String[] words) {
+		String[] newWords = new String[words.length+2];
+		for (int i=0; i<words.length-1; i++)
+			newWords[i] = words[i];
+		newWords[words.length-1] = String.valueOf(total);
+		newWords[words.length+1] = words[words.length-1];
+		return newWords;
+	}
+
+	private String[] appendTotalAfterSpace(String[] words) {
+		String[] newWords = new String[words.length+2];
+		for (int i=0; i<words.length; i++)
+			newWords[i] = words[i];
+		newWords[words.length+1] = String.valueOf(total);
+		return newWords;
+	}
+
+	@Override
+	public int end(String[] input) {
+		// We already have the total so shouldn't need to do anything.
+		return 0;
+	}
+
+	@Override
+	public int getMultiStepKeyWordLocation() {
+		return 0;
+	}
+
+	@Override
+	public boolean isMultiStepStarted() {
+		return multiStepStarted ;
 	}
 }
